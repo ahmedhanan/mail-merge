@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mail Merge</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f5f4f0;
+        color: #1a1a1a;
+        font-size: 14px;
+        min-height: 100vh;
+      }
+      .app {
+        max-width: 780px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .sub {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 2rem;
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 2rem;
+      }
+      .step {
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #e0deda;
+        background: #fff;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .step.active {
+        border-color: #2563eb;
+        background: #eff6ff;
+      }
+      .step.done {
+        border-color: #16a34a;
+        background: #f0fdf4;
+      }
+      .step-num {
+        font-size: 11px;
+        font-weight: 600;
+        color: #999;
+        margin-bottom: 2px;
+      }
+      .step.active .step-num {
+        color: #2563eb;
+      }
+      .step.done .step-num {
+        color: #16a34a;
+      }
+      .step-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #444;
+      }
+      .step.active .step-label,
+      .step.done .step-label {
+        color: inherit;
+      }
+      .panel {
+        display: none;
+      }
+      .panel.active {
+        display: block;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #e0deda;
+        border-radius: 10px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+      }
+      .card-title {
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 12px;
+      }
+      label {
+        font-size: 12px;
+        color: #666;
+        display: block;
+        margin-bottom: 4px;
+        margin-top: 10px;
+      }
+      label:first-child {
+        margin-top: 0;
+      }
+      input[type="text"],
+      input[type="email"],
+      input[type="password"],
+      select,
+      textarea {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #d0cec8;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: inherit;
+        background: #fafaf9;
+        color: #1a1a1a;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: #2563eb;
+        background: #fff;
+      }
+      textarea {
+        resize: vertical;
+        line-height: 1.6;
+        font-family: "Courier New", monospace;
+      }
+      .info-box {
+        background: #f5f4f0;
+        border-radius: 6px;
+        padding: 10px 14px;
+        font-size: 12px;
+        color: #555;
+        line-height: 1.7;
+        margin-top: 10px;
+      }
+      .info-box strong {
+        color: #333;
+      }
+      .btn-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+      }
+      button {
+        padding: 8px 18px;
+        border-radius: 6px;
+        border: 1px solid #d0cec8;
+        background: #fff;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #1a1a1a;
+        transition: all 0.15s;
+      }
+      button:hover {
+        background: #f5f4f0;
+      }
+      button.primary {
+        background: #2563eb;
+        color: #fff;
+        border-color: #2563eb;
+      }
+      button.primary:hover {
+        background: #1d4ed8;
+      }
+      button.success {
+        background: #16a34a;
+        color: #fff;
+        border-color: #16a34a;
+      }
+      button.success:hover {
+        background: #15803d;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button.loading::after {
+        content: "";
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        margin-left: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.75);
+        border-top-color: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        vertical-align: middle;
+      }
+      .loader {
+        display: none;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(37, 99, 235, 0.35);
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .tag {
+        display: inline-block;
+        background: #f0f0ee;
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-family: "Courier New", monospace;
+        font-size: 11px;
+        color: #555;
+        margin: 0 2px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      th {
+        text-align: left;
+        padding: 5px 8px;
+        border-bottom: 1px solid #e0deda;
+        color: #666;
+        font-weight: 500;
+      }
+      td {
+        padding: 4px 8px;
+        border-bottom: 1px solid #f0efeb;
+      }
+      .col-map {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .progress-wrap {
+        margin-top: 1rem;
+        display: none;
+      }
+      .progress-bar {
+        background: #e0deda;
+        border-radius: 4px;
+        height: 5px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: #2563eb;
+        width: 0%;
+        transition: width 0.3s;
+      }
+      .log {
+        margin-top: 10px;
+        max-height: 180px;
+        overflow-y: auto;
+        font-size: 11px;
+        font-family: "Courier New", monospace;
+        line-height: 1.8;
+        color: #555;
+      }
+      .log .ok {
+        color: #16a34a;
+      }
+      .log .err {
+        color: #dc2626;
+      }
+      .log .info {
+        color: #2563eb;
+      }
+      .preview-meta {
+        font-size: 12px;
+        display: grid;
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+      .preview-meta span {
+        color: #999;
+        display: inline-block;
+        min-width: 55px;
+      }
+      .preview-body {
+        border-top: 1px solid #e0deda;
+        padding-top: 10px;
+        white-space: pre-wrap;
+        font-size: 13px;
+        line-height: 1.7;
+        color: #333;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+      }
+      .badge-green {
+        background: #dcfce7;
+        color: #15803d;
+      }
+      .badge-red {
+        background: #fee2e2;
+        color: #dc2626;
+      }
+      .badge-blue {
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <h1>✉ Mail Merge</h1>
+      <p class="sub">
+        Send personalised emails via Gmail — runs entirely on your machine
+      </p>
+
+      <div class="steps">
+        <div class="step active" id="nav1" onclick="goTo(1)">
+          <div class="step-num">Step 1</div>
+          <div class="step-label">Gmail setup</div>
+        </div>
+        <div class="step" id="nav2" onclick="goTo(2)">
+          <div class="step-num">Step 2</div>
+          <div class="step-label">Load Excel</div>
+        </div>
+        <div class="step" id="nav3" onclick="goTo(3)">
+          <div class="step-num">Step 3</div>
+          <div class="step-label">Compose & send</div>
+        </div>
+      </div>
+
+      <!-- PANEL 1 -->
+      <div class="panel active" id="panel1">
+        <div class="card">
+          <div class="card-title">Gmail credentials</div>
+          <label>Your Gmail address</label>
+          <input type="email" id="gmail" placeholder="you@gmail.com" />
+          <label
+            >App password
+            <span style="font-weight: 400"
+              >(not your regular Gmail password)</span
+            ></label
+          >
+          <input
+            type="password"
+            id="apppass"
+            placeholder="xxxx xxxx xxxx xxxx" />
+          <label>Sender display name</label>
+          <input type="text" id="sendername" placeholder="Your Name" />
+          <div class="info-box" style="margin-top: 14px">
+            <strong>How to get an App Password</strong><br />
+            1. Go to
+            <a
+              href="https://myaccount.google.com/security"
+              target="_blank"
+              style="color: #2563eb"
+              >myaccount.google.com/security</a
+            ><br />
+            2. Enable 2-step verification if not already on<br />
+            3. Search "App passwords" → choose Mail → your device<br />
+            4. Copy the 16-character code and paste it above
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="primary" onclick="goTo(2)">Next → Load Excel</button>
+        </div>
+      </div>
+
+      <!-- PANEL 2 -->
+      <div class="panel" id="panel2">
+        <div class="card">
+          <div class="card-title">Upload your Excel or CSV file</div>
+          <p style="font-size: 12px; color: #666; margin-bottom: 10px">
+            Expected columns: <span class="tag">Name</span>
+            <span class="tag">Email</span> <span class="tag">Lead Name</span>
+            <span class="tag">Lead Email</span> — plus any extras you want to
+            use as variables
+          </p>
+          <input
+            type="file"
+            id="xlfile"
+            accept=".xlsx,.xls,.csv"
+            style="font-size: 13px" />
+          <div id="fileinfo" style="display: none; margin-top: 14px">
+            <p
+              style="
+                font-size: 12px;
+                color: #16a34a;
+                font-weight: 500;
+                margin-bottom: 10px;
+              "
+              id="filecount"></p>
+            <div style="overflow-x: auto">
+              <table id="ptable"></table>
+            </div>
+            <div class="col-map" id="colmap"></div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button onclick="goTo(1)">← Back</button>
+          <button class="primary" onclick="goTo(3)">Next → Compose</button>
+        </div>
+      </div>
+
+      <!-- PANEL 3 -->
+      <div class="panel" id="panel3">
+        <div class="card">
+          <div class="card-title">Email template</div>
+          <p style="font-size: 12px; color: #666; margin-bottom: 10px">
+            Use any column header as a variable, e.g.
+            <span class="tag">{% raw %}{{Name}}{% endraw %}</span>
+            <span class="tag">{% raw %}{{Lead Name}}{% endraw %}</span>
+            <span class="tag">{% raw %}{{Email}}{% endraw %}</span>
+          </p>
+          <label>Subject line</label>
+          <input
+            type="text"
+            id="subject"
+            placeholder="e.g. Hi {% raw %}{{Name}}{% endraw %}, a quick update" />
+          <label>Body</label>
+          <textarea
+            id="body"
+            rows="9"
+            placeholder="Dear {% raw %}{{Name}}{% endraw %},&#10;&#10;I hope this finds you well...&#10;&#10;Best regards,&#10;Your Name"></textarea>
+          <label>Delay between emails</label>
+          <select id="delay">
+            <option value="2">2 seconds</option>
+            <option value="4" selected>4 seconds (recommended)</option>
+            <option value="8">8 seconds</option>
+            <option value="15">15 seconds (safest)</option>
+          </select>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Preview — first recipient</div>
+          <div id="emailpreview">
+            <p style="font-size: 13px; color: #999">
+              Fill in the template above to see a preview
+            </p>
+          </div>
+        </div>
+
+        <div class="progress-wrap" id="progwrap">
+          <div class="card">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 8px;
+              ">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span class="loader" id="statusloader"></span>
+                <span style="font-size: 13px; font-weight: 500" id="progstatus"
+                  >Sending...</span
+                >
+              </div>
+              <span style="font-size: 12px; color: #666" id="progcount"></span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progfill"></div>
+            </div>
+            <div class="log" id="log"></div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button onclick="goTo(2)">← Back</button>
+          <button id="sendtestbtn" onclick="sendEmails(true)">
+            🧪 Test — send to myself only
+          </button>
+          <button class="success" id="sendallbtn" onclick="sendEmails(false)">
+            Send all <span id="sendallcount"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let headers = [],
+        rows = [],
+        colMap = {},
+        totalRecipients = 0;
+      let currentStep = 1;
+
+      function goTo(n) {
+        [1, 2, 3].forEach((i) => {
+          document
+            .getElementById("panel" + i)
+            .classList.toggle("active", i === n);
+          const nav = document.getElementById("nav" + i);
+          nav.className = "step" + (i === n ? " active" : i < n ? " done" : "");
+        });
+        currentStep = n;
+        if (n === 3) {
+          updatePreview();
+          document.getElementById("sendallcount").textContent =
+            `(${totalRecipients} emails)`;
+        }
+      }
+
+      document
+        .getElementById("xlfile")
+        .addEventListener("change", async function () {
+          headers = [];
+          rows = [];
+          colMap = {};
+          totalRecipients = 0;
+          document.getElementById("fileinfo").style.display = "none";
+          document.getElementById("emailpreview").innerHTML =
+            '<p style="font-size:13px;color:#999;">Fill in the template above to see a preview</p>';
+          document.getElementById("sendallcount").textContent = "";
+          document.getElementById("progwrap").style.display = "none";
+          document.getElementById("log").innerHTML = "";
+          document.getElementById("progcount").textContent = "";
+          document.getElementById("progfill").style.width = "0%";
+
+          const fd = new FormData();
+          fd.append("file", this.files[0]);
+          const r = await fetch("/upload", { method: "POST", body: fd });
+          const d = await r.json();
+          if (d.error) {
+            alert(d.error);
+            return;
+          }
+          headers = d.headers;
+          rows = d.rows;
+          totalRecipients = d.total;
+          document.getElementById("filecount").textContent =
+            `✓ ${totalRecipients} recipients loaded`;
+          buildPreviewTable(d.rows);
+          buildColMap();
+          document.getElementById("fileinfo").style.display = "";
+          if (currentStep === 3) {
+            updatePreview();
+            document.getElementById("sendallcount").textContent =
+              `(${totalRecipients} emails)`;
+          }
+        });
+
+      function buildPreviewTable(preview) {
+        const show = headers.slice(0, 6);
+        document.getElementById("ptable").innerHTML =
+          "<tr>" +
+          show.map((h) => `<th>${h}</th>`).join("") +
+          "</tr>" +
+          preview
+            .map(
+              (r) =>
+                "<tr>" +
+                show.map((h) => `<td>${r[h] ?? ""}</td>`).join("") +
+                "</tr>",
+            )
+            .join("");
+      }
+
+      function buildColMap() {
+        const needed = ["Name", "Email", "Lead Name", "Lead Email"];
+        colMap = {};
+        document.getElementById("colmap").innerHTML = needed
+          .map((n) => {
+            const guess =
+              headers.find(
+                (h) =>
+                  h.toLowerCase().replace(/\s/g, "") ===
+                  n.toLowerCase().replace(/\s/g, ""),
+              ) || headers[0];
+            colMap[n] = guess;
+            return `<div>
+      <label style="margin-top:0;">${n} column</label>
+      <select onchange="colMap['${n}']=this.value">
+        ${headers.map((h) => `<option value="${h}" ${h === guess ? "selected" : ""}>${h}</option>`).join("")}
+      </select>
+    </div>`;
+          })
+          .join("");
+      }
+
+      function fillTemplate(tmpl, row) {
+        return tmpl.replace(/\{\{([^}]+)\}\}/g, (_, k) => {
+          const col = headers.find((h) => h.toLowerCase() === k.toLowerCase());
+          return col ? (row[col] ?? "") : "";
+        });
+      }
+
+      function updatePreview() {
+        if (!rows.length) return;
+        const r = rows[0];
+        const subj = fillTemplate(
+          document.getElementById("subject").value || "(no subject)",
+          r,
+        );
+        const body = fillTemplate(
+          document.getElementById("body").value || "(empty)",
+          r,
+        );
+        const to = r[colMap["Email"]] || "—";
+        const cc = r[colMap["Lead Email"]] || "—";
+        document.getElementById("emailpreview").innerHTML = `
+    <div class="preview-meta">
+      <div><span>To:</span> ${to}</div>
+      <div><span>CC:</span> ${cc}</div>
+      <div><span>Subject:</span> ${subj}</div>
+    </div>
+    <div class="preview-body">${body}</div>`;
+      }
+
+      document
+        .getElementById("subject")
+        .addEventListener("input", updatePreview);
+      document.getElementById("body").addEventListener("input", updatePreview);
+
+      async function sendEmails(testOnly) {
+        const gmail = document.getElementById("gmail").value.trim();
+        const apppass = document.getElementById("apppass").value.trim();
+        const senderName = document.getElementById("sendername").value.trim();
+        const subject = document.getElementById("subject").value;
+        const body = document.getElementById("body").value;
+        const delay = parseFloat(document.getElementById("delay").value);
+
+        if (!gmail || !apppass) {
+          alert("Please fill in your Gmail credentials in step 1.");
+          goTo(1);
+          return;
+        }
+        if (!rows.length) {
+          alert("Please upload your Excel file in step 2.");
+          goTo(2);
+          return;
+        }
+        if (!subject || !body) {
+          alert("Please fill in the subject and body.");
+          return;
+        }
+
+        const progwrap = document.getElementById("progwrap");
+        const log = document.getElementById("log");
+        const statusLoader = document.getElementById("statusloader");
+        const sendTestBtn = document.getElementById("sendtestbtn");
+        const sendAllBtn = document.getElementById("sendallbtn");
+        const sendingButtons = [sendTestBtn, sendAllBtn].filter(Boolean);
+
+        sendingButtons.forEach((btn) => {
+          btn.disabled = true;
+          btn.classList.add("loading");
+        });
+        progwrap.style.display = "";
+        statusLoader.style.display = "inline-block";
+        log.innerHTML = "";
+        document.getElementById("progstatus").textContent = testOnly
+          ? "Sending test email..."
+          : "Sending...";
+        document.getElementById("progcount").textContent = "";
+        document.getElementById("progfill").style.width = "0%";
+
+        const payload = {
+          gmail,
+          app_password: apppass,
+          sender_name: senderName,
+          subject,
+          body,
+          col_map: colMap,
+          delay,
+          test_only: testOnly,
+        };
+
+        addLog(
+          "info",
+          testOnly
+            ? "→ Sending test email to yourself only..."
+            : `→ Sending to ${totalRecipients} recipients...`,
+        );
+
+        const r = await fetch("/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+
+        if (d.error) {
+          addLog("err", "✗ Error: " + d.error);
+          document.getElementById("progstatus").textContent = "Failed";
+          statusLoader.style.display = "none";
+          sendingButtons.forEach((btn) => {
+            btn.disabled = false;
+            btn.classList.remove("loading");
+          });
+          return;
+        }
+
+        d.results.forEach((res, i) => {
+          const pct = Math.round(((i + 1) / d.results.length) * 100);
+          document.getElementById("progfill").style.width = pct + "%";
+          document.getElementById("progcount").textContent =
+            `${i + 1} / ${d.results.length}`;
+          if (res.status === "sent")
+            addLog(
+              "ok",
+              `✓ Sent to ${res.name ? res.name + " <" + res.to + ">" : res.to}${res.cc ? " (CC: " + res.cc + ")" : ""}`,
+            );
+          else addLog("err", `✗ Skipped ${res.to}: ${res.reason}`);
+        });
+
+        const sent = d.results.filter((r) => r.status === "sent").length;
+        document.getElementById("progstatus").textContent = testOnly
+          ? `Test sent ✓`
+          : `Done — ${sent} of ${d.total} sent`;
+        statusLoader.style.display = "none";
+        sendingButtons.forEach((btn) => {
+          btn.disabled = false;
+          btn.classList.remove("loading");
+        });
+      }
+
+      function addLog(type, msg) {
+        const log = document.getElementById("log");
+        log.innerHTML += `<div class="${type}">${msg}</div>`;
+        log.scrollTop = log.scrollHeight;
+      }
+    </script>
+  </body>
+</html>
