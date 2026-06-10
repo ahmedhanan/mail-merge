@@ -1,7 +1,9 @@
 import json
 import os
+import re
 import smtplib
 import time
+from html import unescape
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -56,6 +58,16 @@ def send():
     if not rows:
         return jsonify({"error": "No data loaded — please upload your Excel file first"}), 400
 
+    def html_to_plain(html_text):
+        text = re.sub(r"<\s*br\s*/?>", "\n", html_text, flags=re.IGNORECASE)
+        text = re.sub(r"</\s*p\s*>", "\n\n", text, flags=re.IGNORECASE)
+        text = re.sub(r"<\s*li\s*>", "- ", text, flags=re.IGNORECASE)
+        text = re.sub(r"</\s*li\s*>", "\n", text, flags=re.IGNORECASE)
+        text = re.sub(r"<[^>]+>", "", text)
+        text = unescape(text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
+
     def fill(tmpl, row):
         for h in headers:
             tmpl = tmpl.replace("{{" + h + "}}", str(row.get(h, "")))
@@ -78,7 +90,8 @@ def send():
                     to_name = row.get(col_map.get("Name", "Name"), "")
 
                 subject = fill(subject_tmpl, row)
-                body = fill(body_tmpl, row)
+                body_html = fill(body_tmpl, row)
+                body_plain = html_to_plain(body_html)
 
                 if not to:
                     results.append(
@@ -91,7 +104,8 @@ def send():
                 if cc and not test_only:
                     msg["Cc"] = cc
                 msg["Subject"] = subject
-                msg.attach(MIMEText(body, "plain"))
+                msg.attach(MIMEText(body_plain, "plain", "utf-8"))
+                msg.attach(MIMEText(body_html, "html", "utf-8"))
 
                 recipients = [to]
                 if cc and not test_only:
