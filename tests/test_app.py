@@ -1,4 +1,5 @@
 import io
+from email import message_from_string
 
 import pytest
 
@@ -160,6 +161,56 @@ def test_send_test_only_sends_to_self(monkeypatch, client):
     sent = FakeSMTP.instances[0].sent_messages
     assert len(sent) == 1
     assert sent[0]["recipients"] == ["sender@gmail.com"]
+
+
+def test_send_includes_html_and_plain_body_parts(monkeypatch, client):
+    FakeSMTP.instances.clear()
+    monkeypatch.setattr(mail_app.smtplib, "SMTP_SSL", FakeSMTP)
+
+    rows = [{"Name": "Alice", "Email": "alice@example.com"}]
+    headers = ["Name", "Email"]
+    _set_session_data(client, rows, headers)
+
+    response = client.post(
+        "/send",
+        json={
+            "gmail": "sender@gmail.com",
+            "app_password": "app-pass",
+            "sender_name": "Sender",
+            "subject": "Hi {{Name}}",
+            "body": "<p><strong>Hello {{Name}}</strong></p><ul><li>First item</li></ul>",
+            "col_map": {
+                "Name": "Name",
+                "Email": "Email",
+                "Lead Name": "Name",
+                "Lead Email": "Email",
+            },
+            "delay": 0,
+            "test_only": True,
+        },
+    )
+
+    assert response.status_code == 200
+
+    sent = FakeSMTP.instances[0].sent_messages
+    assert len(sent) == 1
+    msg = message_from_string(sent[0]["message"])
+    assert msg.is_multipart()
+
+    parts = msg.get_payload()
+    content_types = [p.get_content_type() for p in parts]
+    assert "text/plain" in content_types
+    assert "text/html" in content_types
+
+    plain_part = next(p for p in parts if p.get_content_type() == "text/plain")
+    html_part = next(p for p in parts if p.get_content_type() == "text/html")
+
+    plain_text = plain_part.get_payload(decode=True).decode("utf-8")
+    html_text = html_part.get_payload(decode=True).decode("utf-8")
+
+    assert "Hello Alice" in plain_text
+    assert "- First item" in plain_text
+    assert "<strong>Hello Alice</strong>" in html_text
 
 
 def test_send_all_sends_and_skips_missing_email(monkeypatch, client):

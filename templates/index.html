@@ -132,6 +132,63 @@
         line-height: 1.6;
         font-family: "Courier New", monospace;
       }
+      .rich-editor {
+        border: 1px solid #d0cec8;
+        border-radius: 8px;
+        background: #fafaf9;
+        overflow: hidden;
+      }
+      .editor-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        padding: 8px;
+        border-bottom: 1px solid #e5e2db;
+        background: #f4f2ec;
+      }
+      .editor-toolbar button,
+      .editor-toolbar select,
+      .editor-toolbar input[type="color"] {
+        margin: 0;
+        padding: 5px 8px;
+        font-size: 12px;
+        border-radius: 5px;
+      }
+      .editor-toolbar button {
+        min-width: 30px;
+        border: 1px solid #cfc9be;
+      }
+      .editor-toolbar button.active {
+        background: #e2ebff;
+        border-color: #2563eb;
+      }
+      .editor-toolbar .sep {
+        width: 1px;
+        height: 20px;
+        background: #d6d0c5;
+      }
+      .editor-body {
+        min-height: 220px;
+        padding: 12px;
+        font-size: 14px;
+        line-height: 1.65;
+        outline: none;
+        color: #1a1a1a;
+        overflow-y: auto;
+      }
+      .editor-body:empty:before {
+        content: attr(data-placeholder);
+        color: #909090;
+      }
+      .editor-body ul,
+      .editor-body ol {
+        padding-left: 24px;
+        margin: 8px 0;
+      }
+      .editor-body p {
+        margin: 0 0 10px;
+      }
       .info-box {
         background: #f5f4f0;
         border-radius: 6px;
@@ -292,7 +349,6 @@
       .preview-body {
         border-top: 1px solid #e0deda;
         padding-top: 10px;
-        white-space: pre-wrap;
         font-size: 13px;
         line-height: 1.7;
         color: #333;
@@ -429,10 +485,30 @@
             id="subject"
             placeholder="e.g. Hi {% raw %}{{Name}}{% endraw %}, a quick update" />
           <label>Body</label>
-          <textarea
-            id="body"
-            rows="9"
-            placeholder="Dear {% raw %}{{Name}}{% endraw %},&#10;&#10;I hope this finds you well...&#10;&#10;Best regards,&#10;Your Name"></textarea>
+          <div class="rich-editor">
+            <div class="editor-toolbar">
+              <button type="button" data-cmd="bold" title="Bold"><strong>B</strong></button>
+              <button type="button" data-cmd="italic" title="Italic"><em>I</em></button>
+              <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+              <div class="sep"></div>
+              <select id="fontsize" title="Text size">
+                <option value="3" selected>Normal</option>
+                <option value="4">Large</option>
+                <option value="5">Larger</option>
+                <option value="6">Heading</option>
+              </select>
+              <input type="color" id="fontcolor" title="Text color" value="#1a1a1a" />
+              <div class="sep"></div>
+              <button type="button" data-cmd="insertUnorderedList" title="Bulleted list">• List</button>
+              <button type="button" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+              <button type="button" id="clearformat" title="Remove formatting">Clear</button>
+            </div>
+            <div
+              id="bodyEditor"
+              class="editor-body"
+              contenteditable="true"
+              data-placeholder="Dear {% raw %}{{Name}}{% endraw %},&#10;&#10;I hope this finds you well...&#10;&#10;Best regards,&#10;Your Name"></div>
+          </div>
           <label>Delay between emails</label>
           <select id="delay">
             <option value="2">2 seconds</option>
@@ -493,6 +569,55 @@
         colMap = {},
         totalRecipients = 0;
       let currentStep = 1;
+      const bodyEditor = document.getElementById("bodyEditor");
+
+      function getBodyHtml() {
+        return bodyEditor.innerHTML.trim();
+      }
+
+      function getBodyText() {
+        return bodyEditor.textContent.trim();
+      }
+
+      function execEditorCommand(cmd, value = null) {
+        bodyEditor.focus();
+        document.execCommand(cmd, false, value);
+        updatePreview();
+      }
+
+      function updateToolbarState() {
+        document.querySelectorAll(".editor-toolbar [data-cmd]").forEach((btn) => {
+          const cmd = btn.getAttribute("data-cmd");
+          if (["bold", "italic", "underline", "insertUnorderedList", "insertOrderedList"].includes(cmd)) {
+            btn.classList.toggle("active", document.queryCommandState(cmd));
+          }
+        });
+      }
+
+      document.querySelectorAll(".editor-toolbar [data-cmd]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          execEditorCommand(btn.getAttribute("data-cmd"));
+          updateToolbarState();
+        });
+      });
+
+      document.getElementById("fontsize").addEventListener("change", function () {
+        execEditorCommand("fontSize", this.value);
+      });
+
+      document.getElementById("fontcolor").addEventListener("input", function () {
+        execEditorCommand("foreColor", this.value);
+      });
+
+      document.getElementById("clearformat").addEventListener("click", () => {
+        execEditorCommand("removeFormat");
+        execEditorCommand("unlink");
+        updateToolbarState();
+      });
+
+      bodyEditor.addEventListener("keyup", updateToolbarState);
+      bodyEditor.addEventListener("mouseup", updateToolbarState);
+      bodyEditor.addEventListener("input", updatePreview);
 
       function goTo(n) {
         [1, 2, 3].forEach((i) => {
@@ -602,7 +727,7 @@
           r,
         );
         const body = fillTemplate(
-          document.getElementById("body").value || "(empty)",
+          getBodyHtml() || "(empty)",
           r,
         );
         const to = r[colMap["Email"]] || "—";
@@ -619,14 +744,13 @@
       document
         .getElementById("subject")
         .addEventListener("input", updatePreview);
-      document.getElementById("body").addEventListener("input", updatePreview);
 
       async function sendEmails(testOnly) {
         const gmail = document.getElementById("gmail").value.trim();
         const apppass = document.getElementById("apppass").value.trim();
         const senderName = document.getElementById("sendername").value.trim();
         const subject = document.getElementById("subject").value;
-        const body = document.getElementById("body").value;
+        const body = getBodyHtml();
         const delay = parseFloat(document.getElementById("delay").value);
 
         if (!gmail || !apppass) {
@@ -639,7 +763,7 @@
           goTo(2);
           return;
         }
-        if (!subject || !body) {
+        if (!subject || !getBodyText()) {
           alert("Please fill in the subject and body.");
           return;
         }
