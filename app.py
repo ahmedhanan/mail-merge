@@ -92,11 +92,16 @@ def send():
                 subject = fill(subject_tmpl, row)
                 body_html = fill(body_tmpl, row)
                 body_plain = html_to_plain(body_html)
+                progress = f"[{i + 1}/{len(targets)}]"
 
                 if not to:
+                    print(
+                        f"{progress} SKIPPED - Missing recipient email for row: {to_name or 'Unknown'}")
                     results.append(
                         {"to": "?", "status": "skipped", "reason": "No email address"})
                     continue
+
+                print(f"{progress} SENDING - To: {to} | CC: {cc or '-'}")
 
                 msg = MIMEMultipart()
                 msg["From"] = f"{sender_name} <{gmail}>"
@@ -110,7 +115,12 @@ def send():
                 recipients = [to]
                 if cc and not test_only:
                     recipients.append(cc)
-                server.sendmail(gmail, recipients, msg.as_string())
+                try:
+                    server.sendmail(gmail, recipients, msg.as_string())
+                    print(f"{progress} SENT - To: {to}")
+                except Exception as send_err:
+                    print(f"{progress} FAILED - To: {to} | Error: {send_err}")
+                    raise
                 results.append({"to": to, "name": to_name,
                                "cc": cc, "status": "sent"})
 
